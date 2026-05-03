@@ -3,37 +3,54 @@ import { StyleSheet, View, Text, ScrollView, RefreshControl } from 'react-native
 import { Cpu, HardDrive, MemoryStick, ActivitySquare, Server, AlertTriangle } from 'lucide-react-native';
 import { MetricCard } from '@/components/MetricCard';
 import { JobQueue } from '@/components/JobQueue';
+import { API_BASE_URL } from '@/constants/api';
 
 export default function DashboardScreen() {
   const [status, setStatus] = useState<any>(null);
   const [jobs, setJobs] = useState<any[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
-  const fetchMockData = () => {
-    // Simulate API call with local mock data
-    setStatus({
-      cpu: { usage: Math.floor(Math.random() * 40) + 40, temperature: Math.floor(Math.random() * 20) + 60 },
-      memory: { total: 128, used: Math.floor(Math.random() * 40) + 60 },
-      gpu: { usage: Math.floor(Math.random() * 50) + 50 },
-      uptime: "14 days, 3 hours",
-    });
+  const fetchData = async () => {
+    try {
+      const [resStatus, resJobs] = await Promise.all([
+        fetch(`${API_BASE_URL}/api/status`),
+        fetch(`${API_BASE_URL}/api/jobs`)
+      ]);
 
-    setJobs([
-      { id: "job-001", name: "Fluid Dynamics Sim", user: "admin", status: "running", progress: 78, timeRemaining: "2h 15m" },
-      { id: "job-002", name: "Quantum Annealing test", user: "researcher_a", status: "queued", progress: 0, timeRemaining: "--" },
-    ]);
+      if (!resStatus.ok || !resJobs.ok) {
+        throw new Error("Failed to fetch data");
+      }
+
+      const statusData = await resStatus.json();
+      const jobsData = await resJobs.json();
+
+      setStatus(statusData);
+      setJobs(jobsData);
+    } catch (error) {
+      console.error("API fetch error:", error);
+      // Fallback state if server is unreachable
+      if (!status) {
+        setStatus({
+          cpu: { usage: 0, temperature: 0 },
+          memory: { total: 0, used: 0 },
+          gpu: { usage: 0 },
+          uptime: "Offline",
+          error: "Connection Failed"
+        });
+        setJobs([]);
+      }
+    }
   };
 
   useEffect(() => {
-    fetchMockData();
-    const interval = setInterval(fetchMockData, 3000);
+    fetchData();
+    const interval = setInterval(fetchData, 3000);
     return () => clearInterval(interval);
   }, []);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchMockData();
-    setTimeout(() => setRefreshing(false), 500);
+    fetchData().then(() => setRefreshing(false));
   };
 
   if (!status) return (

@@ -1,5 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { View, Text, TextInput, ScrollView, StyleSheet, KeyboardAvoidingView, Platform } from 'react-native';
+import { API_BASE_URL } from '@/constants/api';
 
 interface TerminalLine {
   id: number;
@@ -15,54 +16,38 @@ export function TerminalEmulator() {
   const [input, setInput] = useState('');
   const scrollViewRef = useRef<ScrollView>(null);
 
-  const handleCommand = () => {
+  const handleCommand = async () => {
     const trimmedCmd = input.trim();
     if (!trimmedCmd) return;
 
+    if (trimmedCmd.toLowerCase() === 'clear') {
+      setHistory([]);
+      setInput("");
+      return;
+    }
+
     const newHistory = [...history, { id: Date.now(), text: `admin@node-01:~$ ${trimmedCmd}`, isCommand: true }];
-    
-    let response = "";
-    switch (trimmedCmd.toLowerCase()) {
-      case "help":
-        response = "Available commands: ls, pwd, whoami, nvidia-smi, clear, date, uptime";
-        break;
-      case "ls":
-        response = "data/  scripts/  models/  output.log  run_job.sh";
-        break;
-      case "pwd":
-        response = "/home/admin";
-        break;
-      case "whoami":
-        response = "admin";
-        break;
-      case "nvidia-smi":
-        response = `+-----------------------------------------+
-| NVIDIA-SMI 525.105.17   CUDA: 12.0      |
-|-----------------------------------------|
-| GPU  Name        Pwr:Usage/Cap  Util    |
-|   0  A100...     120W / 300W    89%     |
-+-----------------------------------------+`;
-        break;
-      case "date":
-        response = new Date().toString();
-        break;
-      case "uptime":
-        response = "up 14 days,  3:15";
-        break;
-      case "clear":
-        setHistory([]);
-        setInput("");
-        return;
-      default:
-        response = `bash: ${trimmedCmd}: command not found`;
-    }
-
-    if (response) {
-      newHistory.push({ id: Date.now() + 1, text: response, isCommand: false });
-    }
-
     setHistory(newHistory);
     setInput("");
+
+    try {
+      const res = await fetch(`${API_BASE_URL}/api/terminal`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ command: trimmedCmd }),
+      });
+
+      const data = await res.json();
+      if (data.output) {
+        setHistory(prev => [...prev, { id: Date.now(), text: data.output, isCommand: false }]);
+      } else if (data.error) {
+        setHistory(prev => [...prev, { id: Date.now(), text: `Error: ${data.error}`, isCommand: false }]);
+      }
+    } catch (err: any) {
+      setHistory(prev => [...prev, { id: Date.now(), text: `Network Error: ${err.message}`, isCommand: false }]);
+    }
   };
 
   return (
