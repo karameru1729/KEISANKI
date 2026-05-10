@@ -1,6 +1,6 @@
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
-import { PlayCircle, Clock, CheckCircle2, XCircle } from "lucide-react";
+import { PlayCircle, Clock, CheckCircle2, XCircle, Trash2 } from "lucide-react";
 
 function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -15,7 +15,7 @@ interface Job {
   timeRemaining: string;
 }
 
-export function JobQueue({ jobs }: { jobs: Job[] }) {
+export function JobQueue({ jobs, onDelete }: { jobs: Job[], onDelete?: (id: string) => void }) {
   return (
     <div className="glass-panel rounded-xl p-6">
       <div className="flex items-center justify-between mb-6">
@@ -33,7 +33,8 @@ export function JobQueue({ jobs }: { jobs: Job[] }) {
               <th className="px-4 py-3">User</th>
               <th className="px-4 py-3">Status</th>
               <th className="px-4 py-3">Progress</th>
-              <th className="px-4 py-3 rounded-tr-lg">Time Left</th>
+              <th className="px-4 py-3">Time Left</th>
+              <th className="px-4 py-3 text-right rounded-tr-lg">Actions</th>
             </tr>
           </thead>
           <tbody>
@@ -73,6 +74,17 @@ export function JobQueue({ jobs }: { jobs: Job[] }) {
                   </div>
                 </td>
                 <td className="px-4 py-3 text-slate-400">{job.timeRemaining}</td>
+                <td className="px-4 py-3 text-right">
+                  {onDelete && (
+                    <button 
+                      onClick={() => onDelete(job.id)}
+                      className="p-1.5 text-slate-400 hover:text-[var(--color-danger)] hover:bg-[var(--color-danger)]/10 rounded transition-colors"
+                      title={job.status === "running" || job.status === "queued" ? "Stop Job" : "Delete Job"}
+                    >
+                      {job.status === "running" || job.status === "queued" ? <XCircle className="w-4 h-4" /> : <Trash2 className="w-4 h-4" />}
+                    </button>
+                  )}
+                </td>
               </tr>
             ))}
           </tbody>
